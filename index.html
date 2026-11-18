@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memorice Ancestral: Chinchorro vs Egipto • Chile Re-Descubre 2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+  <!-- MediaPipe Hands & Camera Utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <style>
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: #070b14;
+      color: #f8fafc;
+      overflow-x: hidden;
+      user-select: none;
+    }
+    .font-title {
+      font-family: 'Cinzel', serif;
+    }
+
+    /* Animación 3D para voltear fichas */
+    .card-scene {
+      perspective: 900px;
+    }
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      transform-style: preserve-3d;
+    }
+    .card-inner.is-flipped {
+      transform: rotateY(180deg);
+    }
+    .card-face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: 1rem;
+    }
+    .card-front {
+      transform: rotateY(180deg);
+    }
+
+    /* Resaltado cuando el cursor de mano está encima */
+    .card-hovered-p1 {
+      box-shadow: 0 0 0 3px #22d3ee, 0 0 22px rgba(34, 211, 238, 0.65);
+      transform: scale(1.03);
+    }
+    .card-hovered-p2 {
+      box-shadow: 0 0 0 3px #fbbf24, 0 0 22px rgba(251, 191, 36, 0.65);
+      transform: scale(1.03);
+    }
+
+    /* Fondos temáticos sutiles */
+    .bg-chinchorro {
+      background: radial-gradient(circle at 25% 20%, rgba(14, 116, 144, 0.25), rgba(124, 45, 18, 0.18) 55%, rgba(9, 13, 22, 0.96) 100%);
+    }
+    .bg-egipto {
+      background: radial-gradient(circle at 75% 20%, rgba(217, 119, 6, 0.25), rgba(30, 58, 138, 0.22) 55%, rgba(9, 13, 22, 0.96) 100%);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+  <!-- Barra Superior Compacta -->
+  <header class="w-full px-4 md:px-6 py-2.5 bg-slate-950/90 border-b border-amber-500/25 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 z-30">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 via-amber-500 to-orange-600 flex items-center justify-center text-lg shadow-lg">
+        🧠
+      </div>
+      <div>
+        <h1 class="font-title text-base md:text-lg font-black tracking-wide text-amber-300 leading-tight">
+          MEMORICE ANCESTRAL: CHINCHORRO VS EGIPTO
+        </h1>
+        <p class="text-[11px] text-slate-400">Chile Re-Descubre 2026 • Mueve tu mano y cierra el puño (✊) o haz pinza (👌) para voltear</p>
+      </div>
+    </div>
+
+    <!-- Estado central de la partida -->
+    <div id="global-status-pill" class="px-3.5 py-1.5 rounded-full bg-slate-900 border border-slate-700 text-xs font-bold text-slate-200 flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span id="global-status-text">Esperando inicio de partida</span>
+    </div>
+
+    <!-- Botones de Control -->
+    <div class="flex items-center gap-2">
+      <button id="btn-cam" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs transition shadow-lg shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer">
+        <span>📷</span> Activar Cámara
+      </button>
+      <button id="btn-mouse-mode" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-semibold text-xs transition cursor-pointer">
+        🖱️ Modo Mouse
+      </button>
+      <button id="btn-restart" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-semibold text-xs transition cursor-pointer">
+        🔄 Reiniciar
+      </button>
+    </div>
+  </header>
+
+  <!-- Área Principal de Pantalla Dividida -->
+  <main class="relative flex-1 grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-amber-500/30">
+
+    <!-- Visor Flotante PIP de Cámara (Centro Superior) -->
+    <div id="pip-wrapper" class="hidden lg:flex flex-col items-center fixed top-16 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+      <div class="w-52 h-36 rounded-2xl overflow-hidden border-2 border-amber-400/80 shadow-2xl bg-slate-950/95 relative">
+        <video id="videoInput" class="hidden" playsinline></video>
+        <canvas id="pipCanvas" class="w-full h-full block"></canvas>
+        <div class="absolute bottom-1 inset-x-1.5 flex justify-between text-[10px] font-extrabold px-2 py-0.5 rounded-lg bg-black/70">
+          <span class="text-cyan-300">J1 IZQ</span>
+          <span id="pip-status" class="text-emerald-400">IA ACTIVA</span>
+          <span class="text-amber-300">J2 DER</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== LADO IZQUIERDO: CULTURA CHINCHORRO ==================== -->
+    <section id="panel-p1" class="relative bg-chinchorro p-4 md:p-6 flex flex-col justify-between overflow-hidden">
+      <!-- Encabezado J1 -->
+      <div class="flex items-center justify-between gap-2 mb-4 z-10">
+        <div>
+          <span class="inline-block px-2.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-[10px] font-extrabold uppercase tracking-wider mb-1">
+            Jugador 1 • Norte de Chile (5.050 a.C.)
+          </span>
+          <h2 class="font-title text-xl md:text-2xl font-black text-cyan-200 flex items-center gap-2">
+            🗿 Cultura Chinchorro
+          </h2>
+        </div>
+        <div class="text-right bg-slate-950/70 border border-cyan-500/30 px-3.5 py-2 rounded-2xl">
+          <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Pares Encontrados</p>
+          <p class="text-xl font-black text-cyan-300"><span id="p1-matches-count">0</span> / 4</p>
+        </div>
+      </div>
+
+      <!-- Tablero de 8 Fichas (4x2) Chinchorro -->
+      <div id="grid-p1" class="grid grid-cols-4 gap-2.5 md:gap-3.5 my-auto max-w-xl w-full mx-auto z-10">
+        <!-- Generado dinámicamente por JS -->
+      </div>
+
+      <!-- Indicador de palabras memorizadas (ocultas con candado hasta la prueba) -->
+      <div class="mt-4 bg-slate-950/75 border border-cyan-500/25 rounded-2xl p-3 flex items-center justify-between gap-2 z-10">
+        <span class="text-xs font-bold text-cyan-300">Palabras capturadas:</span>
+        <div id="p1-captured-pills" class="flex flex-wrap gap-1.5">
+          <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-500">1. ???</span>
+          <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-500">2. ???</span>
+          <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-500">3. ???</span>
+          <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-500">4. ???</span>
+        </div>
+      </div>
+
+      <!-- Modal Flotante de Palabra Clave al hacer Match (J1) -->
+      <div id="match-modal-p1" class="hidden absolute inset-4 bg-slate-950/92 backdrop-blur-md border-2 border-cyan-400 rounded-3xl p-6 flex flex-col items-center justify-center text-center z-20 shadow-2xl">
+        <span class="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-extrabold uppercase tracking-widest mb-2">
+          ¡Par Encontrado! Memoriza esta palabra
+        </span>
+        <div id="match-icon-p1" class="text-5xl mb-2">🏺</div>
+        <h3 id="match-word-p1" class="font-title text-3xl md:text-4xl font-black text-cyan-300 tracking-wider mb-3">
+          MANGANESO
+        </h3>
+        <p id="match-fact-p1" class="text-sm text-slate-200 max-w-md mb-5 leading-relaxed">
+          Dato histórico aquí.
+        </p>
+        <div class="w-48 h-2 bg-slate-800 rounded-full overflow-hidden mb-3">
+          <div id="match-timer-p1" class="h-full bg-cyan-400 transition-all duration-100" style="width: 100%"></div>
+        </div>
+        <button onclick="closeMatchModal(1)" class="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs transition cursor-pointer">
+          ¡Listo, ya la memoricé!
+        </button>
+      </div>
+
+      <!-- Overlay de Espera / Bloqueo Temporal (J1) -->
+      <div id="lock-overlay-p1" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 z-20">
+        <span class="text-4xl mb-3">⏳</span>
+        <h3 id="lock-title-p1" class="font-title text-xl font-black text-cyan-300 mb-2">Tablero en Pausa</h3>
+        <p id="lock-desc-p1" class="text-sm text-slate-300 max-w-sm">El otro jugador está realizando su prueba de memoria.</p>
+      </div>
+
+      <!-- Cursor Virtual de Mano J1 -->
+      <div id="cursor-p1" class="hidden fixed w-10 h-10 -ml-5 -mt-5 rounded-full border-2 border-cyan-300 bg-cyan-400/25 shadow-lg shadow-cyan-400/50 pointer-events-none z-40 flex items-center justify-center text-base transition-transform duration-75">
+        🖐️
+      </div>
+    </section>
+
+    <!-- ==================== LADO DERECHO: CULTURA EGIPCIA ==================== -->
+    <section id="panel-p2" class="relative bg-egipto p-4 md:p-6 flex flex-col justify-between overflow-hidden">
+      <!-- Encabezado J2 -->
+      <div class="flex items-center justify-between gap-2 mb-4 z-10">
+        <div>
+          <span class="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-extrabold uppercase tracking-wider mb-1">
+            Jugador 2 • Valle del Nilo (3.000 a.C.)
+          </span>
+          <h2 class="font-title text-xl md:text-2xl font-black text-amber-300 flex items-center gap-2">
+            🐫 Cultura Egipcia
+          </h2>
+        </div>
+        <div class="text-right bg-slate-950/70 border border-amber-500/30 px-3.5 py-2 rounded-2xl">
+          <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Pares Encontrados</p>
+          <p class="text-xl font-black text-amber-300"><span id="p2-matches-count">0</span> / 4</p>
+        </div>
+      </div>
+
+      <!-- Tablero de 8 Fichas (4x2) Egipcio -->
+      <div id="grid-p2" class="grid grid-cols-4 gap-2.5 md:gap-3.5 my-auto max-w-xl w-full mx-auto z-10">
+        <!-- Generado dinámicamente por JS -->
+      </div>
+
+      <!-- Indicador de palabras memorizadas (J2) -->
+      <div class="mt-4 bg-slate-950/75 border border-amber-500/25 rounded-2xl p-3 flex items-center justify-between gap-2 z-10">
+        <span class="text-xs font-bold text-amber-300">Palabras capturadas:</span>
+        <div id="p2-captured-pills" class="flex flex-wrap gap-1.5">
+          <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-500">1. ???</span>
+          <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-500">2. ???</span>
+          <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-500">3. ???</span>
+          <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-500">4. ???</span>
+        </div>
+      </div>
+
+      <!-- Modal Flotante de Palabra Clave al hacer Match (J2) -->
+      <div id="match-modal-p2" class="hidden absolute inset-4 bg-slate-950/92 backdrop-blur-md border-2 border-amber-400 rounded-3xl p-6 flex flex-col items-center justify-center text-center z-20 shadow-2xl">
+        <span class="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-extrabold uppercase tracking-widest mb-2">
+          ¡Par Encontrado! Memoriza esta palabra
+        </span>
+        <div id="match-icon-p2" class="text-5xl mb-2">👑</div>
+        <h3 id="match-word-p2" class="font-title text-3xl md:text-4xl font-black text-amber-300 tracking-wider mb-3">
+          FARAÓN
+        </h3>
+        <p id="match-fact-p2" class="text-sm text-slate-200 max-w-md mb-5 leading-relaxed">
+          Dato histórico aquí.
+        </p>
+        <div class="w-48 h-2 bg-slate-800 rounded-full overflow-hidden mb-3">
+          <div id="match-timer-p2" class="h-full bg-amber-400 transition-all duration-100" style="width: 100%"></div>
+        </div>
+        <button onclick="closeMatchModal(2)" class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs transition cursor-pointer">
+          ¡Listo, ya la memoricé!
+        </button>
+      </div>
+
+      <!-- Overlay de Espera / Bloqueo Temporal (J2) -->
+      <div id="lock-overlay-p2" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 z-20">
+        <span class="text-4xl mb-3">⏳</span>
+        <h3 id="lock-title-p2" class="font-title text-xl font-black text-amber-300 mb-2">Tablero en Pausa</h3>
+        <p id="lock-desc-p2" class="text-sm text-slate-300 max-w-sm">El otro jugador está realizando su prueba de memoria.</p>
+      </div>
+
+      <!-- Cursor Virtual de Mano J2 -->
+      <div id="cursor-p2" class="hidden fixed w-10 h-10 -ml-5 -mt-5 rounded-full border-2 border-amber-300 bg-amber-400/25 shadow-lg shadow-amber-400/50 pointer-events-none z-40 flex items-center justify-center text-base transition-transform duration-75">
+        🖐️
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== MODAL DE BIENVENIDA ==================== -->
+  <div id="welcome-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div class="max-w-2xl w-full bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 md:p-8 text-center shadow-2xl">
+      <span class="inline-block px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-extrabold uppercase tracking-widest mb-3">
+        Concurso Chile Re-Descubre 2026
+      </span>
+      <h2 class="font-title text-2xl md:text-4xl font-black text-white mb-3">
+        Duelo de Memorice Ancestral
+      </h2>
+      <p class="text-sm md:text-base text-slate-300 mb-6 leading-relaxed">
+        Compite en pantalla dividida: <strong class="text-cyan-300">Cultura Chinchorro (Izquierda)</strong> vs <strong class="text-amber-300">Cultura Egipcia (Derecha)</strong>.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-left mb-6">
+        <div class="bg-slate-950/80 border border-slate-800 p-3.5 rounded-2xl">
+          <div class="text-xl mb-1">🖐️ + ✊</div>
+          <p class="text-xs font-bold text-white mb-1">1. Voltea con Gestos</p>
+          <p class="text-[11px] text-slate-400">Apunta tu mano sobre una ficha y cierra el puño (✊) o haz pinza (👌) para voltearla.</p>
+        </div>
+        <div class="bg-slate-950/80 border border-slate-800 p-3.5 rounded-2xl">
+          <div class="text-xl mb-1">📜 + 🧠</div>
+          <p class="text-xs font-bold text-white mb-1">2. Memoriza el Dato</p>
+          <p class="text-[11px] text-slate-400">Cada par revela una palabra clave de su cultura. ¡Memorízala antes de que desaparezca!</p>
+        </div>
+        <div class="bg-slate-950/80 border border-slate-800 p-3.5 rounded-2xl">
+          <div class="text-xl mb-1">✍️ + 🏆</div>
+          <p class="text-xs font-bold text-white mb-1">3. Prueba Final</p>
+          <p class="text-[11px] text-slate-400">El más rápido escribe sus 4 palabras. Si falla alguna, el rival tiene oportunidad de remontar.</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap justify-center gap-3">
+        <button id="start-cam-welcome" class="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm md:text-base shadow-xl transition transform hover:scale-105 cursor-pointer">
+          📷 Jugar con Cámara (MediaPipe)
+        </button>
+        <button id="start-mouse-welcome" class="px-6 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-bold text-sm md:text-base transition cursor-pointer">
+          🖱️ Jugar con Mouse / Táctil
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL DE PRUEBA DE MEMORIA (ESCRITURA) ==================== -->
+  <div id="recall-modal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div id="recall-card" class="max-w-lg w-full bg-slate-900 border-2 border-cyan-400 rounded-3xl p-6 md:p-8 shadow-2xl">
+      <div class="text-center mb-5">
+        <span id="recall-badge" class="inline-block px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-extrabold uppercase tracking-widest mb-2">
+          ¡Completaste los 4 pares!
+        </span>
+        <h2 id="recall-title" class="font-title text-2xl md:text-3xl font-black text-white">
+          Prueba de Memoria: Jugador 1
+        </h2>
+        <p id="recall-subtitle" class="text-xs md:text-sm text-slate-300 mt-1">
+          Escribe las 4 palabras clave que descubriste en tus parejas (en cualquier orden):
+        </p>
+      </div>
+
+      <form id="recall-form" class="space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1">Palabra Clave #1</label>
+            <input type="text" id="word-input-0" autocomplete="off" placeholder="Escribe aquí..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 focus:border-amber-400 focus:outline-none text-white font-bold uppercase text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1">Palabra Clave #2</label>
+            <input type="text" id="word-input-1" autocomplete="off" placeholder="Escribe aquí..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 focus:border-amber-400 focus:outline-none text-white font-bold uppercase text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1">Palabra Clave #3</label>
+            <input type="text" id="word-input-2" autocomplete="off" placeholder="Escribe aquí..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 focus:border-amber-400 focus:outline-none text-white font-bold uppercase text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1">Palabra Clave #4</label>
+            <input type="text" id="word-input-3" autocomplete="off" placeholder="Escribe aquí..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 focus:border-amber-400 focus:outline-none text-white font-bold uppercase text-sm" />
+          </div>
+        </div>
+
+        <button type="submit" class="w-full mt-4 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm md:text-base shadow-lg transition cursor-pointer">
+          ✅ Verificar mis 4 Palabras
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL DE RESULTADO FINAL ==================== -->
+  <div id="result-modal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div class="max-w-xl w-full bg-slate-900 border-2 border-amber-400 rounded-3xl p-6 md:p-8 text-center shadow-2xl">
+      <div id="result-emoji" class="text-6xl mb-3">🏆</div>
+      <h2 id="result-title" class="font-title text-2xl md:text-4xl font-black text-amber-300 mb-2">
+        ¡Victoria para Chinchorro!
+      </h2>
+      <p id="result-desc" class="text-sm md:text-base text-slate-200 mb-5 leading-relaxed">
+        Recordaste todas las palabras científicas de tu cultura.
+      </p>
+
+      <!-- Resumen educativo de ambos bandos -->
+      <div id="result-summary" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left mb-6 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 text-xs">
+        <div>
+          <p class="font-extrabold text-cyan-300 mb-1">🗿 Palabras Chinchorro:</p>
+          <p class="text-slate-300">MANGANESO • ATACAMA • IGUALDAD • TOTORA</p>
+        </div>
+        <div>
+          <p class="font-extrabold text-amber-300 mb-1">🐫 Palabras Egipto:</p>
+          <p class="text-slate-300">FARAÓN • NATRÓN • PIRÁMIDE • LINO</p>
+        </div>
+      </div>
+
+      <button onclick="resetFullGame()" class="px-7 py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm md:text-base shadow-xl transition cursor-pointer">
+        🔄 Jugar Otra Revancha
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. DATOS EDUCATIVOS DE CADA CULTURA (4 PARES POR JUGADOR)
+    // =========================================================================
+    const CHINCHORRO_PAIRS = [
+      {
+        pairId: 'c1',
+        word: 'MANGANESO',
+        icon: '🎭',
+        colorClass: 'from-slate-800 to-cyan-900 border-cyan-400',
+        fact: 'Pintaban las máscaras de sus momias con pasta negra de óxido de manganeso hace más de 7.000 años.'
+      },
+      {
+        pairId: 'c2',
+        word: 'ATACAMA',
+        icon: '🏜️',
+        colorClass: 'from-orange-900 to-amber-800 border-orange-400',
+        fact: 'La extrema aridez del Desierto de Atacama ayudó a preservar los cuerpos de forma natural y artificial.'
+      },
+      {
+        pairId: 'c3',
+        word: 'IGUALDAD',
+        icon: '👨‍👩‍👧‍👦',
+        colorClass: 'from-teal-900 to-emerald-900 border-emerald-400',
+        fact: 'A diferencia de Egipto, los Chinchorro momificaban a toda la comunidad, incluidos niños y bebés.'
+      },
+      {
+        pairId: 'c4',
+        word: 'TOTORA',
+        icon: '🌾',
+        colorClass: 'from-purple-900 to-indigo-900 border-purple-400',
+        fact: 'Reforzaban el esqueleto con varillas de madera y fibras vegetales de totora para dar rigidez al cuerpo.'
+      }
+    ];
+
+    const EGYPT_PAIRS = [
+      {
+        pairId: 'e1',
+        word: 'FARAÓN',
+        icon: '👑',
+        colorClass: 'from-amber-700 to-yellow-900 border-yellow-300',
+        fact: 'En el Antiguo Egipto, la momificación compleja estaba reservada principalmente para reyes y nobles.'
+      },
+      {
+        pairId: 'e2',
+        word: 'NATRÓN',
+        icon: '🧂',
+        colorClass: 'from-sky-800 to-blue-950 border-sky-300',
+        fact: 'Cubrían el cuerpo con sal mineral de natrón del valle del Nilo durante 40 días para deshidratar los tejidos.'
+      },
+      {
+        pairId: 'e3',
+        word: 'PIRÁMIDE',
+        icon: '🐫',
+        colorClass: 'from-orange-800 to-red-950 border-amber-400',
+        fact: 'Construían monumentales tumbas de piedra para proteger el cuerpo del soberano en su viaje al más allá.'
+      },
+      {
+        pairId: 'e4',
+        word: 'LINO',
+        icon: '📜',
+        colorClass: 'from-indigo-800 to-violet-950 border-indigo-300',
+        fact: 'Envolvían cuidadosamente el cuerpo con cientos de metros de vendas de lino y amuletos protectores.'
+      }
+    ];
+
+    // =========================================================================
+    // 2. ESTADO DEL JUEGO Y CONTROL DE SEGUNDA OPORTUNIDAD
+    // =========================================================================
+    let audioCtx = null;
+    let cameraActive = false;
+    let gamePhase = 'idle'; // 'idle' | 'playing' | 'recall_first' | 'second_chance_play' | 'recall_second' | 'ended'
+    let firstFinisher = null; // 1 o 2
+    let firstPlayerScore = 0;
+    let activeRecallPlayer = null;
+
+    const players = {
+      1: {
+        id: 1,
+        name: 'Cultura Chinchorro',
+        cards: [],
+        flippedIndices: [],
+        matchedPairIds: [],
+        lockBoard: false,
+        modalTimerInterval: null,
+        hoveredCardIndex: -1,
+        wasClosedGesture: false
+      },
+      2: {
+        id: 2,
+        name: 'Cultura Egipcia',
+        cards: [],
+        flippedIndices: [],
+        matchedPairIds: [],
+        lockBoard: false,
+        modalTimerInterval: null,
+        hoveredCardIndex: -1,
+        wasClosedGesture: false
+      }
+    };
+
+    // =========================================================================
+    // 3. SÍNTESIS DE SONIDO (WEB AUDIO API)
+    // =========================================================================
+    function ensureAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playTone(type) {
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      if (type === 'flip') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(340, now);
+        osc.frequency.exponentialRampToValueAtTime(520, now + 0.09);
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now);
+        osc.stop(now + 0.1);
+      } else if (type === 'match') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(523.25, now); // Do5
+        osc.frequency.setValueAtTime(659.25, now + 0.1); // Mi5
+        osc.frequency.setValueAtTime(783.99, now + 0.2); // Sol5
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      } else if (type === 'error') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(190, now);
+        osc.frequency.linearRampToValueAtTime(140, now + 0.22);
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.24);
+        osc.start(now);
+        osc.stop(now + 0.24);
+      } else if (type === 'win') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.setValueAtTime(554.37, now + 0.12);
+        osc.frequency.setValueAtTime(659.25, now + 0.24);
+        osc.frequency.setValueAtTime(880, now + 0.36);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
+        osc.start(now);
+        osc.stop(now + 0.7);
+      }
+    }
+
+    // =========================================================================
+    // 4. CONSTRUCCIÓN DE TABLEROS DE MEMORICE
+    // =========================================================================
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function buildPlayerBoard(playerNum) {
+      const sourcePairs = playerNum === 1 ? CHINCHORRO_PAIRS : EGYPT_PAIRS;
+      const duplicated = [...sourcePairs, ...sourcePairs].map((item, idx) => ({
+        ...item,
+        uid: `${playerNum}-${idx}`,
+        matched: false,
+        flipped: false
+      }));
+
+      players[playerNum].cards = shuffleArray(duplicated);
+      players[playerNum].flippedIndices = [];
+      players[playerNum].matchedPairIds = [];
+      players[playerNum].lockBoard = false;
+      players[playerNum].hoveredCardIndex = -1;
+
+      renderBoardHTML(playerNum);
+      updateCapturedPills(playerNum);
+    }
+
+    function renderBoardHTML(playerNum) {
+      const gridEl = document.getElementById(`grid-p${playerNum}`);
+      const isP1 = playerNum === 1;
+      gridEl.innerHTML = '';
+
+      players[playerNum].cards.forEach((card, index) => {
+        const cardBtn = document.createElement('button');
+        cardBtn.type = 'button';
+        cardBtn.id = `card-${playerNum}-${index}`;
+        cardBtn.className = 'card-scene aspect-[3/4] w-full focus:outline-none transition-transform duration-150 cursor-pointer';
+        cardBtn.addEventListener('click', () => handleCardFlip(playerNum, index));
+
+        const backPattern = isP1
+          ? 'bg-gradient-to-br from-slate-900 via-cyan-950 to-slate-900 border-2 border-cyan-500/45 hover:border-cyan-300'
+          : 'bg-gradient-to-br from-slate-900 via-amber-950 to-slate-900 border-2 border-amber-500/45 hover:border-amber-300';
+
+        const backSymbol = isP1 ? '🗿' : '🐫';
+        const backLabel = isP1 ? 'CHINCHORRO' : 'EGIPTO';
+
+        cardBtn.innerHTML = `
+          <div id="card-inner-${playerNum}-${index}" class="card-inner">
+            <!-- Reverso de la ficha -->
+            <div class="card-face ${backPattern} flex flex-col items-center justify-center p-2 shadow-lg">
+              <span class="text-2xl md:text-3xl mb-1 opacity-85">${backSymbol}</span>
+              <span class="text-[9px] font-extrabold tracking-widest opacity-60">${backLabel}</span>
+            </div>
+            <!-- Frente de la ficha (al voltearse) -->
+            <div class="card-face card-front bg-gradient-to-br ${card.colorClass} border-2 flex flex-col items-center justify-center p-2 shadow-xl">
+              <span class="text-3xl md:text-4xl mb-1.5 drop-shadow">${card.icon}</span>
+              <span class="text-[10px] md:text-xs font-black tracking-wider text-white bg-black/35 px-2 py-0.5 rounded-full">
+                ???
+              </span>
+            </div>
+          </div>
+        `;
+        gridEl.appendChild(cardBtn);
+      });
+    }
+
+    function updateCapturedPills(playerNum) {
+      const container = document.getElementById(`p${playerNum}-captured-pills`);
+      const countEl = document.getElementById(`p${playerNum}-matches-count`);
+      const matchedCount = players[playerNum].matchedPairIds.length;
+      countEl.textContent = matchedCount;
+
+      const accent = playerNum === 1
+        ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-200'
+        : 'bg-amber-500/20 border-amber-400/50 text-amber-200';
+
+      let html = '';
+      for (let i = 0; i < 4; i++) {
+        if (i < matchedCount) {
+          html += `<span class="px-2.5 py-1 rounded-lg border ${accent} text-[11px] font-extrabold">🗿 Dato #${i + 1}</span>`;
+        } else {
+          html += `<span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-500">${i + 1}. ???</span>`;
+        }
+      }
+      container.innerHTML = html;
+    }
+
+    // =========================================================================
+    // 5. LÓGICA DE VOLTEO Y MATCH
+    // =========================================================================
+    function handleCardFlip(playerNum, index) {
+      ensureAudio();
+      if (gamePhase !== 'playing' && gamePhase !== 'second_chance_play') return;
+      if (gamePhase === 'second_chance_play' && playerNum === firstFinisher) return;
+
+      const pState = players[playerNum];
+      if (pState.lockBoard) return;
+
+      const card = pState.cards[index];
+      if (!card || card.flipped || card.matched) return;
+      if (pState.flippedIndices.length >= 2) return;
+
+      // Voltear visualmente
+      card.flipped = true;
+      pState.flippedIndices.push(index);
+      document.getElementById(`card-inner-${playerNum}-${index}`).classList.add('is-flipped');
+      playTone('flip');
+
+      // Comprobar si ya hay 2 volteadas
+      if (pState.flippedIndices.length === 2) {
+        const [idxA, idxB] = pState.flippedIndices;
+        const cardA = pState.cards[idxA];
+        const cardB = pState.cards[idxB];
+
+        if (cardA.pairId === cardB.pairId) {
+          // ¡MATCH ENCONTRADO!
+          cardA.matched = true;
+          cardB.matched = true;
+          pState.flippedIndices = [];
+          pState.matchedPairIds.push(cardA.pairId);
+          updateCapturedPills(playerNum);
+          playTone('match');
+
+          // Mostrar palabra clave y dato histórico en el frente de las fichas
+          revealWordOnCards(playerNum, idxA, idxB, cardA.word);
+
+          // Mostrar modal de memorización en su mitad de pantalla
+          openMatchModal(playerNum, cardA);
+        } else {
+          // No coinciden: volver a tapar tras 850 ms
+          pState.lockBoard = true;
+          setTimeout(() => {
+            cardA.flipped = false;
+            cardB.flipped = false;
+            document.getElementById(`card-inner-${playerNum}-${idxA}`).classList.remove('is-flipped');
+            document.getElementById(`card-inner-${playerNum}-${idxB}`).classList.remove('is-flipped');
+            pState.flippedIndices = [];
+            pState.lockBoard = false;
+          }, 850);
+        }
+      }
+    }
+
+    function revealWordOnCards(playerNum, idxA, idxB, word) {
+      [idxA, idxB].forEach((idx) => {
+        const inner = document.getElementById(`card-inner-${playerNum}-${idx}`);
+        const badge = inner.querySelector('.card-front span:last-child');
+        if (badge) badge.textContent = word;
+      });
+    }
+
+    function openMatchModal(playerNum, cardData) {
+      const pState = players[playerNum];
+      pState.lockBoard = true;
+
+      const modal = document.getElementById(`match-modal-p${playerNum}`);
+      document.getElementById(`match-icon-p${playerNum}`).textContent = cardData.icon;
+      document.getElementById(`match-word-p${playerNum}`).textContent = cardData.word;
+      document.getElementById(`match-fact-p${playerNum}`).textContent = cardData.fact;
+
+      const timerBar = document.getElementById(`match-timer-p${playerNum}`);
+      timerBar.style.width = '100%';
+      modal.classList.remove('hidden');
+
+      let remaining = 100;
+      if (pState.modalTimerInterval) clearInterval(pState.modalTimerInterval);
+      pState.modalTimerInterval = setInterval(() => {
+        remaining -= 2.5; // ~4 segundos para memorizar
+        timerBar.style.width = `${Math.max(0, remaining)}%`;
+        if (remaining <= 0) {
+          closeMatchModal(playerNum);
+        }
+      }, 100);
+    }
+
+    function closeMatchModal(playerNum) {
+      const pState = players[playerNum];
+      if (pState.modalTimerInterval) {
+        clearInterval(pState.modalTimerInterval);
+        pState.modalTimerInterval = null;
+      }
+
+      // Ocultar la palabra en las fichas para que tenga que recordarla de memoria
+      pState.cards.forEach((c, idx) => {
+        if (c.matched) {
+          const inner = document.getElementById(`card-inner-${playerNum}-${idx}`);
+          const badge = inner?.querySelector('.card-front span:last-child');
+          if (badge) badge.textContent = 'MEMORIZADA';
+        }
+      });
+
+      document.getElementById(`match-modal-p${playerNum}`).classList.add('hidden');
+      pState.lockBoard = false;
+
+      // Verificar si completó los 4 pares
+      if (pState.matchedPairIds.length === 4) {
+        onPlayerCompletedAllPairs(playerNum);
+      }
+    }
+
+    // =========================================================================
+    // 6. PRUEBA DE MEMORIA Y REGLA DE SEGUNDA OPORTUNIDAD
+    // =========================================================================
+    function onPlayerCompletedAllPairs(playerNum) {
+      if (gamePhase === 'playing') {
+        // Primer jugador en terminar sus 4 pares
+        firstFinisher = playerNum;
+        gamePhase = 'recall_first';
+
+        // Pausar al otro jugador mientras el primero responde
+        const otherPlayer = playerNum === 1 ? 2 : 1;
+        setBoardLockOverlay(
+          otherPlayer,
+          true,
+          '¡Tu rival completó sus pares!',
+          'Espera un momento mientras intenta escribir sus 4 palabras clave. Si falla alguna, ¡tendrás oportunidad de ganar!'
+        );
+        openRecallTestModal(playerNum, false);
+      } else if (gamePhase === 'second_chance_play' && playerNum !== firstFinisher) {
+        // El segundo jugador completó sus pares en su segunda oportunidad
+        gamePhase = 'recall_second';
+        openRecallTestModal(playerNum, true);
+      }
+    }
+
+    function setBoardLockOverlay(playerNum, show, title = '', desc = '') {
+      const overlay = document.getElementById(`lock-overlay-p${playerNum}`);
+      if (show) {
+        document.getElementById(`lock-title-p${playerNum}`).textContent = title;
+        document.getElementById(`lock-desc-p${playerNum}`).textContent = desc;
+        overlay.classList.remove('hidden');
+      } else {
+        overlay.classList.add('hidden');
+      }
+    }
+
+    function openRecallTestModal(playerNum, isSecondChance) {
+      activeRecallPlayer = playerNum;
+      const modal = document.getElementById('recall-modal');
+      const card = document.getElementById('recall-card');
+      const badge = document.getElementById('recall-badge');
+      const title = document.getElementById('recall-title');
+      const subtitle = document.getElementById('recall-subtitle');
+
+      const isP1 = playerNum === 1;
+      card.className = `max-w-lg w-full bg-slate-900 border-2 ${isP1 ? 'border-cyan-400' : 'border-amber-400'} rounded-3xl p-6 md:p-8 shadow-2xl`;
+      badge.className = `inline-block px-3 py-1 rounded-full ${isP1 ? 'bg-cyan-500/20 text-cyan-300' : 'bg-amber-500/20 text-amber-300'} text-xs font-extrabold uppercase tracking-widest mb-2`;
+      badge.textContent = isSecondChance ? '⚡ Segunda Oportunidad de Victoria' : '🏁 ¡Primer Finalista!';
+      title.textContent = `Prueba de Memoria: ${isP1 ? 'Chinchorro (J1)' : 'Egipto (J2)'}`;
+      subtitle.textContent = 'Escribe las 4 palabras clave que aparecieron al formar tus parejas (puedes omitir tildes):';
+
+      for (let i = 0; i < 4; i++) {
+        const inp = document.getElementById(`word-input-${i}`);
+        inp.value = '';
+      }
+
+      modal.classList.remove('hidden');
+      setTimeout(() => document.getElementById('word-input-0').focus(), 100);
+    }
+
+    function normalizeWord(str) {
+      return str
+        .trim()
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    document.getElementById('recall-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!activeRecallPlayer) return;
+
+      const playerNum = activeRecallPlayer;
+      const expectedList = (playerNum === 1 ? CHINCHORRO_PAIRS : EGYPT_PAIRS).map((p) =>
+        normalizeWord(p.word)
+      );
+
+      // Recoger respuestas únicas del usuario
+      const userAnswers = [];
+      for (let i = 0; i < 4; i++) {
+        const val = normalizeWord(document.getElementById(`word-input-${i}`).value);
+        if (val && !userAnswers.includes(val)) {
+          userAnswers.push(val);
+        }
+      }
+
+      let correctCount = 0;
+      expectedList.forEach((exp) => {
+        if (userAnswers.includes(exp)) correctCount++;
+      });
+
+      document.getElementById('recall-modal').classList.add('hidden');
+
+      if (gamePhase === 'recall_first') {
+        firstPlayerScore = correctCount;
+
+        if (correctCount === 4) {
+          // ¡Ganó inmediatamente por velocidad y memoria perfecta!
+          endGameWithWinner(
+            playerNum,
+            `¡${players[playerNum].name} completó sus pares primero y recordó las 4 palabras clave a la perfección!`
+          );
+        } else {
+          // Falló alguna palabra -> El otro jugador recibe la segunda oportunidad
+          playTone('error');
+          const secondPlayer = playerNum === 1 ? 2 : 1;
+          gamePhase = 'second_chance_play';
+
+          setBoardLockOverlay(
+            playerNum,
+            true,
+            `Acertaste ${correctCount} de 4 palabras`,
+            `¡No lograste las 4! Ahora ${players[secondPlayer].name} tiene la oportunidad de terminar sus pares y ganar si recuerda todas sus palabras.`
+          );
+          setBoardLockOverlay(secondPlayer, false);
+
+          updateGlobalStatus(
+            `⚡ ¡Segunda oportunidad para ${players[secondPlayer].name}! Completa tus pares restantes`
+          );
+        }
+      } else if (gamePhase === 'recall_second') {
+        const secondPlayer = playerNum;
+        if (correctCount === 4) {
+          endGameWithWinner(
+            secondPlayer,
+            `¡Remontada histórica! ${players[firstFinisher].name} falló en la prueba y ${players[secondPlayer].name} recordó las 4 palabras clave.`
+          );
+        } else if (correctCount > firstPlayerScore) {
+          endGameWithWinner(
+            secondPlayer,
+            `Ninguno logró las 4 perfectas, pero ${players[secondPlayer].name} recordó más palabras (${correctCount}/4 vs ${firstPlayerScore}/4).`
+          );
+        } else if (firstPlayerScore > correctCount) {
+          endGameWithWinner(
+            firstFinisher,
+            `Ninguno logró las 4 perfectas, pero ${players[firstFinisher].name} mantuvo la ventaja (${firstPlayerScore}/4 vs ${correctCount}/4).`
+          );
+        } else {
+          endGameWithWinner(
+            0,
+            `¡Empate científico! Ambos jugadores recordaron ${correctCount} de 4 palabras clave de sus culturas.`
+          );
+        }
+      }
+    });
+
+    function endGameWithWinner(winnerNum, description) {
+      gamePhase = 'ended';
+      playTone('win');
+
+      const resModal = document.getElementById('result-modal');
+      const resEmoji = document.getElementById('result-emoji');
+      const resTitle = document.getElementById('result-title');
+      const resDesc = document.getElementById('result-desc');
+
+      if (winnerNum === 1) {
+        resEmoji.textContent = '🗿🏆';
+        resTitle.textContent = '¡Gana Cultura Chinchorro!';
+        resTitle.className = 'font-title text-2xl md:text-4xl font-black text-cyan-300 mb-2';
+      } else if (winnerNum === 2) {
+        resEmoji.textContent = '🐫🏆';
+        resTitle.textContent = '¡Gana Cultura Egipcia!';
+        resTitle.className = 'font-title text-2xl md:text-4xl font-black text-amber-300 mb-2';
+      } else {
+        resEmoji.textContent = '🤝✨';
+        resTitle.textContent = '¡Empate Ancestral!';
+        resTitle.className = 'font-title text-2xl md:text-4xl font-black text-emerald-300 mb-2';
+      }
+
+      resDesc.textContent = description;
+      resModal.classList.remove('hidden');
+      updateGlobalStatus('Partida finalizada');
+    }
+
+    function updateGlobalStatus(text) {
+      document.getElementById('global-status-text').textContent = text;
+    }
+
+    // =========================================================================
+    // 7. INTEGRACIÓN MEDIAPIPE HANDS (CURSOR VIRTUAL + GESTO PUÑO/PINZA)
+    // =========================================================================
+    const videoInput = document.getElementById('videoInput');
+    const pipCanvas = document.getElementById('pipCanvas');
+    const pipCtx = pipCanvas.getContext('2d');
+
+    function dist2D(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    // Detecta si la mano hace puño cerrado (✊) o pinza (👌) para hacer "clic"
+    function isClickGesture(lm) {
+      if (!lm || lm.length < 21) return false;
+      const wrist = lm[0];
+      const palmSize = dist2D(wrist, lm[9]);
+      if (palmSize < 0.01) return false;
+
+      // Pinza: distancia corta entre punta del pulgar (4) y punta del índice (8)
+      const pinchDist = dist2D(lm[4], lm[8]) / palmSize;
+      if (pinchDist < 0.42) return true;
+
+      // Puño cerrado: puntas de índice, medio, anular y meñique cerca de la muñeca
+      const avgTipDist =
+        (dist2D(wrist, lm[8]) +
+          dist2D(wrist, lm[12]) +
+          dist2D(wrist, lm[16]) +
+          dist2D(wrist, lm[20])) /
+        (4 * palmSize);
+
+      return avgTipDist < 1.15;
+    }
+
+    function updateHandCursorAndSelection(playerNum, lm) {
+      const cursorEl = document.getElementById(`cursor-p${playerNum}`);
+      const pState = players[playerNum];
+
+      // Limpiar hover anterior
+      if (pState.hoveredCardIndex !== -1) {
+        const prevCard = document.getElementById(`card-${playerNum}-${pState.hoveredCardIndex}`);
+        if (prevCard) prevCard.classList.remove('card-hovered-p1', 'card-hovered-p2');
+        pState.hoveredCardIndex = -1;
+      }
+
+      if (!lm || (gamePhase !== 'playing' && gamePhase !== 'second_chance_play')) {
+        cursorEl.classList.add('hidden');
+        return;
+      }
+
+      // Coordenada en espejo (X invertida)
+      const mirrorX = 1 - lm[9].x;
+      const normY = lm[9].y;
+
+      // Mapear la mitad correspondiente de la cámara a todo el ancho de su tablero
+      let localNormX;
+      if (playerNum === 1) {
+        localNormX = Math.min(1, Math.max(0, mirrorX / 0.5));
+      } else {
+        localNormX = Math.min(1, Math.max(0, (mirrorX - 0.5) / 0.5));
+      }
+
+      const panelRect = document.getElementById(`panel-p${playerNum}`).getBoundingClientRect();
+      const screenX = panelRect.left + localNormX * panelRect.width;
+      const screenY = panelRect.top + normY * panelRect.height;
+
+      const closed = isClickGesture(lm);
+      cursorEl.classList.remove('hidden');
+      cursorEl.style.left = `${screenX}px`;
+      cursorEl.style.top = `${screenY}px`;
+      cursorEl.textContent = closed ? '🧠' : '🖐️';
+
+      // Detectar qué ficha está debajo del cursor virtual
+      pState.cards.forEach((_, idx) => {
+        const cardEl = document.getElementById(`card-${playerNum}-${idx}`);
+        if (!cardEl) return;
+        const r = cardEl.getBoundingClientRect();
+        if (screenX >= r.left && screenX <= r.right && screenY >= r.top && screenY <= r.bottom) {
+          pState.hoveredCardIndex = idx;
+          cardEl.classList.add(playerNum === 1 ? 'card-hovered-p1' : 'card-hovered-p2');
+        }
+      });
+
+      // Disparar volteo al pasar de mano abierta a puño/pinza
+      if (closed && !pState.wasClosedGesture && pState.hoveredCardIndex !== -1) {
+        handleCardFlip(playerNum, pState.hoveredCardIndex);
+      }
+      pState.wasClosedGesture = closed;
+    }
+
+    async function initMediaPipeCamera() {
+      ensureAudio();
+      document.getElementById('welcome-modal').classList.add('hidden');
+      startNewSession();
+
+      if (cameraActive) return;
+      updateGlobalStatus('Iniciando cámara y detección de manos...');
+
+      try {
+        pipCanvas.width = 208;
+        pipCanvas.height = 144;
+
+        const hands = new Hands({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+          maxNumHands: 2,
+          modelComplexity: 1,
+          minDetectionConfidence: 0.65,
+          minTrackingConfidence: 0.6
+        });
+
+        hands.onResults((results) => {
+          let leftHand = null;
+          let rightHand = null;
+
+          if (results.multiHandLandmarks) {
+            for (const lm of results.multiHandLandmarks) {
+              // En espejo, x >= 0.5 corresponde al lado izquierdo de la pantalla
+              if (lm[9].x >= 0.5) leftHand = lm;
+              else rightHand = lm;
+            }
+          }
+
+          // Dibujar PIP de cámara
+          pipCtx.save();
+          pipCtx.clearRect(0, 0, pipCanvas.width, pipCanvas.height);
+          pipCtx.scale(-1, 1);
+          pipCtx.drawImage(videoInput, -pipCanvas.width, 0, pipCanvas.width, pipCanvas.height);
+          pipCtx.restore();
+
+          // Línea divisoria central
+          pipCtx.strokeStyle = 'rgba(251, 191, 36, 0.85)';
+          pipCtx.lineWidth = 1.5;
+          pipCtx.setLineDash([4, 4]);
+          pipCtx.beginPath();
+          pipCtx.moveTo(pipCanvas.width / 2, 0);
+          pipCtx.lineTo(pipCanvas.width / 2, pipCanvas.height);
+          pipCtx.stroke();
+          pipCtx.setLineDash([]);
+
+          // Dibujar puntos de manos en PIP
+          [
+            { lm: leftHand, color: '#22d3ee' },
+            { lm: rightHand, color: '#fbbf24' }
+          ].forEach(({ lm, color }) => {
+            if (!lm) return;
+            pipCtx.fillStyle = color;
+            [0, 4, 8, 9, 12, 16, 20].forEach((i) => {
+              pipCtx.beginPath();
+              pipCtx.arc((1 - lm[i].x) * pipCanvas.width, lm[i].y * pipCanvas.height, 3, 0, Math.PI * 2);
+              pipCtx.fill();
+            });
+          });
+
+          updateHandCursorAndSelection(1, leftHand);
+          updateHandCursorAndSelection(2, rightHand);
+        });
+
+        const camera = new Camera(videoInput, {
+          onFrame: async () => {
+            await hands.send({ image: videoInput });
+          },
+          width: 640,
+          height: 480
+        });
+
+        await camera.start();
+        cameraActive = true;
+        document.getElementById('pip-wrapper').classList.remove('hidden');
+        updateGlobalStatus('¡En juego! Mueve tu mano y haz puño (✊) para voltear');
+      } catch (err) {
+        console.error(err);
+        updateGlobalStatus('Modo Mouse activo (no se detectó cámara)');
+      }
+    }
+
+    // =========================================================================
+    // 8. INICIO Y REINICIO DE SESIÓN
+    // =========================================================================
+    function startNewSession() {
+      firstFinisher = null;
+      firstPlayerScore = 0;
+      activeRecallPlayer = null;
+      gamePhase = 'playing';
+
+      setBoardLockOverlay(1, false);
+      setBoardLockOverlay(2, false);
+      document.getElementById('match-modal-p1').classList.add('hidden');
+      document.getElementById('match-modal-p2').classList.add('hidden');
+      document.getElementById('recall-modal').classList.add('hidden');
+      document.getElementById('result-modal').classList.add('hidden');
+
+      buildPlayerBoard(1);
+      buildPlayerBoard(2);
+      updateGlobalStatus('¡Encuentra los 4 pares y memoriza cada palabra!');
+    }
+
+    function resetFullGame() {
+      ensureAudio();
+      document.getElementById('welcome-modal').classList.add('hidden');
+      startNewSession();
+    }
+
+    // Asignación de botones
+    document.getElementById('start-cam-welcome').addEventListener('click', initMediaPipeCamera);
+    document.getElementById('btn-cam').addEventListener('click', initMediaPipeCamera);
+    document.getElementById('start-mouse-welcome').addEventListener('click', () => {
+      ensureAudio();
+      document.getElementById('welcome-modal').classList.add('hidden');
+      startNewSession();
+    });
+    document.getElementById('btn-mouse-mode').addEventListener('click', () => {
+      ensureAudio();
+      document.getElementById('welcome-modal').classList.add('hidden');
+      startNewSession();
+    });
+    document.getElementById('btn-restart').addEventListener('click', resetFullGame);
+
+    // Pre-construir tableros visibles de fondo al cargar
+    buildPlayerBoard(1);
+    buildPlayerBoard(2);
+  </script>
+</body>
+</html>
